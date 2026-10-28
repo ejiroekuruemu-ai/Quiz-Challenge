@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quiz Challenge — Cleaned Edition</title>
+<style>
+:root{--gold:#f5b82e;--dark:#172033;--blue:#2456a6;--bg:#f3f5fa}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:#20283a}
+header{background:var(--dark);color:white;text-align:center;padding:22px 14px}header h1{color:var(--gold);margin:0 0 8px}
+main{max-width:900px;margin:22px auto;padding:0 12px}.card{background:white;padding:22px;border-radius:14px;margin-bottom:16px;box-shadow:0 3px 14px #0000000c}
+label{display:block;font-weight:bold;margin:14px 0 7px}select{width:100%;padding:12px;border:1px solid #ccd2de;border-radius:8px;font-size:16px;background:white}
+button{padding:12px 15px;border:0;border-radius:8px;background:var(--blue);color:white;font-weight:bold;cursor:pointer;margin:4px}button:disabled{opacity:.45;cursor:not-allowed}
+.gold{background:var(--gold);color:#20283a}.secondary{background:#e7ebf3;color:#20283a}.danger{background:#b72e3d}
+.hidden{display:none!important}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.row button{flex:1}
+.small{font-size:14px;color:#657087;line-height:1.5}#notice{background:#fff4d5;padding:12px;border-radius:8px;margin:12px 0;line-height:1.5}
+#progress{height:8px;background:#e8ebf2;border-radius:10px;overflow:hidden;margin:14px 0}#bar{height:100%;background:var(--gold);width:0}
+#questionText{font-size:21px;line-height:1.5}.option{display:flex;gap:10px;align-items:flex-start;padding:13px;border:1px solid #dce1eb;border-radius:9px;margin:9px 0;cursor:pointer;font-weight:normal}
+.option input{width:auto;margin-top:4px}.option.chosen{border-color:var(--blue);background:#eef4ff}
+#navigator{display:flex;gap:7px;flex-wrap:wrap}.navnum{width:39px;height:39px;padding:0;background:#e7ebf3;color:#20283a}.navnum.answered{background:#cfe8d8}.navnum.current{outline:3px solid var(--gold)}
+.stats{display:flex;gap:8px;flex-wrap:wrap}.stat{background:#f2f5fa;border-radius:10px;padding:14px;flex:1;min-width:100px;text-align:center}.stat strong{display:block;font-size:24px;margin-bottom:5px}
+.review-item{border:1px solid #dce1eb;border-radius:10px;padding:16px;margin:12px 0}.review-item h3{margin-top:0}.explanation{background:#f3f5fa;border-radius:8px;padding:11px;line-height:1.5}
+footer{text-align:center;color:#697386;padding:20px}
+</style>
+</head>
+<body>
+<header><h1>QUIZ CHALLENGE</h1><p>Cleaned Edition · Practice, improve, and challenge yourself</p></header>
+<main>
+<section id="setup" class="card">
+<h2>Set Up Your Quiz</h2>
+<label for="mode">Quiz mode</label><select id="mode"><option value="one">One subject</option><option value="mixed">Mixed subjects</option></select>
+<label for="subject">Subject</label><select id="subject"><option>English</option><option>Maths</option><option>Science</option><option>Technology</option><option>Geography</option><option>History</option><option>General Knowledge</option></select>
+<label for="difficulty">Difficulty</label><select id="difficulty"><option value="1">Easy</option><option value="2">Medium</option><option value="3" selected>Hard</option></select>
+<label for="count">Questions per quiz</label><select id="count"><option>10</option><option>15</option><option selected>20</option><option>30</option><option>50</option><option>100</option></select>
+<label for="seconds">Time per question</label><select id="seconds"><option value="0">No timer</option><option value="10">10 seconds</option><option value="15">15 seconds</option><option value="20">20 seconds</option><option value="30">30 seconds</option></select>
+<div id="bankInfo" class="small"></div><div id="notice" class="hidden"></div><button id="start" class="gold">Start Quiz</button>
+<p class="small">Question history is saved in this browser on this device. Choose “Reset question history” to allow previously seen questions again.</p>
+<button id="resetHistory" class="secondary">Reset Question History</button>
+</section>
+<section id="quiz" class="card hidden">
+<div class="row"><div><strong id="quizLabel"></strong><div id="levelLabel" class="small"></div></div><div style="margin-left:auto;text-align:right"><strong id="timer"></strong><div id="answeredLabel" class="small"></div></div></div>
+<div id="progress"><div id="bar"></div></div><p id="questionNumber" class="small"></p><h2 id="questionText"></h2><div id="options"></div>
+<div class="row"><button id="previous" class="secondary">Previous</button><button id="next">Next</button><button id="finish" class="gold">Finish Quiz</button></div>
+<h3>Question Navigator</h3><p class="small">Green numbers are answered. You can revisit questions before finishing.</p><div id="navigator"></div>
+</section>
+<section id="results" class="card hidden">
+<h2>Quiz Results</h2><div class="stats"><div class="stat"><strong id="score"></strong>Score</div><div class="stat"><strong id="percentage"></strong>Percentage</div><div class="stat"><strong id="correctCount"></strong>Correct</div><div class="stat"><strong id="wrongCount"></strong>Incorrect</div></div>
+<p id="resultMessage"></p><p id="unansweredResult" class="small"></p>
+<div class="row"><button id="reviewCorrect">Review Correct Answers</button><button id="reviewWrong" class="danger">Review Incorrect / Unanswered</button></div>
+<div class="row"><button id="retry" class="gold">Set Up Another Quiz</button></div>
+<div id="review" class="hidden"><h2 id="reviewTitle"></h2><div id="reviewContent"></div><button id="backResults" class="secondary">Back to Results</button></div>
+</section>
+</main><footer>Quiz Challenge · Cleaned question bank. Counts shown are actual available questions; some subjects still need more content to reach 150 per level.</footer>
+<script>
+const subjects=["English","Maths","Science","Technology","Geography","History","General Knowledge"];
+const levels=[1,2,3];
+const bank=[];
+function add(s,d,q,o,a,e,id){bank.push({s,d,q,o,a,e,id});}
+function hash(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function addTemplateSet(subject,difficulty,items,make){
+ let n=0;
+ for(const item of items){for(let variant=0;variant<Math.max(1,Math.ceil(150/items.length));variant++){
+  const x=make(item,variant,n);
+  if(x){add(subject,difficulty,x.q,x.o,x.a,x.e,subject+"-"+difficulty+"-"+(++n));}
+ }}
+ // Keep a strict ceiling of 150 per subject and level.
+ const same=bank.filter(q=>q.s===subject&&q.d===difficulty);
+ if(same.length>150){const keep=new Set(same.slice(0,150).map(q=>q.id));for(let i=bank.length-1;i>=0;i--)if(bank[i].s===subject&&bank[i].d===difficulty&&!keep.has(bank[i].id))bank.splice(i,1);}
+}
+const englishVocab=[
+["abate","lessen","intensify","decorate","predict","Abate means to lessen in intensity."],
+["aberration","deviation from what is normal","a routine event","a final decision","a clear explanation","An aberration is a departure from what is usual."],
+["benevolent","kind and charitable","hostile","careless","uncertain","Benevolent means well-meaning and kind."],
+["candid","frank and honest","secretive","confused","ceremonial","Candid means truthful and direct."],
+["capricious","unpredictable","consistent","generous","methodical","Capricious describes sudden, unpredictable changes."],
+["deference","respectful submission","open disagreement","carelessness","celebration","Deference is respectful regard for another's authority or judgment."],
+["ephemeral","short-lived","permanent","complicated","invisible","Ephemeral means lasting a very short time."],
+["fastidious","very attentive to detail","reckless","indifferent","forgetful","Fastidious describes great care and exactness."],
+["gregarious","sociable","solitary","angry","silent","Gregarious means enjoying the company of others."],
+["laconic","using few words","long-winded","unclear","melodious","Laconic means brief in speech or writing."],
+["mitigate","make less severe","worsen","announce","postpone","Mitigate means reduce the severity of something."],
+["obdurate","stubbornly unyielding","easily persuaded","generous","sleepy","Obdurate means refusing to change one's view."],
+["pragmatic","practical","imaginary","theoretical only","careless","Pragmatic focuses on practical results."],
+["quell","put an end to","encourage","measure","divide","Quell means suppress or bring to an end."],
+["recondite","difficult to understand","obvious","commonplace","cheerful","Recondite describes obscure or complex knowledge."],
+["sagacious","wise and perceptive","foolish","hasty","indifferent","Sagacious means having good judgment."],
+["tenacious","persistent","fragile","forgetful","hesitant","Tenacious means holding firmly or persisting."],
+["ubiquitous","present everywhere","rare","temporary","unimportant","Ubiquitous means found everywhere."],
+["vacillate","waver between choices","decide firmly","celebrate","explain clearly","Vacillate means to be indecisive."],
+["zealous","enthusiastic and devoted","apathetic","deceptive","exhausted","Zealous means showing strong enthusiasm."],
+["equivocal","ambiguous","unmistakable","generous","accurate","Equivocal means open to more than one interpretation."],
+["fallacious","based on faulty reasoning","well-proven","transparent","generous","Fallacious means logically unsound or mistaken."],
+["intransigent","unwilling to compromise","flexible","curious","cheerful","Intransigent describes an unwillingness to compromise."],
+["loquacious","talkative","silent","shy","brief","Loquacious means very talkative."],
+["perfunctory","done with little care","thorough","passionate","innovative","Perfunctory describes an action done routinely with minimal effort."]
+];
+for(let d=1;d<=3;d++){
+ const pool=d===1?englishVocab.slice(0,10):d===2?englishVocab.slice(5,20):englishVocab.slice(10);
+ addTemplateSet("English",d,pool,(it,v,n)=>{
+  const [word,meaning,...rest]=it; const correct=meaning;
+  const distract=englishVocab.filter(z=>z[1]!==correct).map(z=>z[1]);
+  const wrong=shuffle(distract).slice(0,3);
+  const opts=shuffle([correct,...wrong]);return {q:`Choose the closest meaning of “${word}”.`,o:opts,a:opts.indexOf(correct),e:it[5]};
+ });
+}
+const mathTopics=[
+{n:"addition",make:(i,v)=>{let a=12+i*3+v,b=7+i+v*2,r=a+b;return {q:`Calculate ${a} + ${b}.`,ans:r,exp:`Add the two numbers: ${a} + ${b} = ${r}.`}}},
+{n:"subtraction",make:(i,v)=>{let a=50+i*4+v,b=8+i+v,r=a-b;return {q:`Calculate ${a} − ${b}.`,ans:r,exp:`Subtract ${b} from ${a}: ${a} − ${b} = ${r}.`}}},
+{n:"multiplication",make:(i,v)=>{let a=3+(i%17),b=4+((i+v)%12),r=a*b;return {q:`Calculate ${a} × ${b}.`,ans:r,exp:`Multiplication gives ${a} × ${b} = ${r}.`}}},
+{n:"percentages",make:(i,v)=>{let p=[5,10,12,15,20,25,30,40,50,60,75][(i+v)%11],base=100+((i*7+v*3)%20)*10,r=base*p/100;return {q:`What is ${p}% of ${base}?`,ans:r,exp:`Convert ${p}% to ${p/100}; ${base} × ${p/100} = ${r}.`}}},
+{n:"squares",make:(i,v)=>{let a=2+((i+v)%28),r=a*a;return {q:`What is ${a} squared?`,ans:r,exp:`${a}² = ${a} × ${a} = ${r}.`}}},
+{n:"equations",make:(i,v)=>{let x=2+(i%30),a=2+(v%8),b=3+(i%19),c=a*x+b;return {q:`Solve for x: ${a}x + ${b} = ${c}.`,ans:x,exp:`Subtract ${b}: ${a}x = ${a*x}. Divide by ${a}; x = ${x}.`}}}
+];
+function numOptions(correct,seed){let set=new Set([correct]);let step=Math.max(1,Math.abs(correct)%7+1);let k=1;while(set.size<4){set.add(correct+(k%2?1:-1)*step*k);k++;}return shuffle([...set]);}
+for(let d=1;d<=3;d++){
+ for(const topic of mathTopics){for(let i=0;i<30;i++){let v=d*3;const x=topic.make(i,v);let o=numOptions(x.ans,i);add("Maths",d,x.q,o,o.indexOf(x.ans),x.exp,`Maths-${d}-${topic.n}-${i}`);}}
+}
+const facts={
+Science:[
+["Which organelle contains most of a eukaryotic cell's DNA?","Nucleus",["Ribosome","Cell membrane","Golgi apparatus"],"The nucleus contains most of the genetic material in a eukaryotic cell."],
+["Which gas is released during photosynthesis?","Oxygen",["Nitrogen","Methane","Helium"],"Photosynthesis releases oxygen when water molecules are split."],
+["What is the SI unit of force?","Newton",["Joule","Watt","Pascal"],"Force is measured in newtons."],
+["Which particle has a negative electric charge?","Electron",["Proton","Neutron","Photon"],"Electrons carry negative charge."],
+["What is the chemical symbol for sodium?","Na",["So","S","Sd"],"Na comes from the Latin name natrium."],
+["Which blood component helps clotting?","Platelets",["Red blood cells","Plasma water","Neurons"],"Platelets help form blood clots."],
+["What is the process by which plants lose water vapor through leaves?","Transpiration",["Fermentation","Condensation","Combustion"],"Transpiration is water loss through plant surfaces, especially stomata."],
+["Which molecule carries genetic instructions?","DNA",["ATP only","Cellulose","Hemoglobin"],"DNA stores genetic information in most organisms."],
+["What is the boiling point of pure water at sea level?","100°C",["0°C","50°C","150°C"],"At standard atmospheric pressure, water boils at 100°C."],
+["Which force attracts objects with mass toward each other?","Gravity",["Friction","Magnetism only","Buoyancy"],"Gravity is the attraction between masses."],
+["Which vitamin can the skin synthesize with UVB exposure?","Vitamin D",["Vitamin C","Vitamin B12","Vitamin K only"],"UVB exposure helps the skin produce vitamin D."],
+["Which part of the neuron receives many incoming signals?","Dendrites",["Axon terminal only","Myelin sheath","Cell wall"],"Dendrites receive signals from other neurons."],
+["What is the main gas in Earth's atmosphere?","Nitrogen",["Oxygen","Carbon dioxide","Argon"],"Nitrogen makes up about 78% of dry air."],
+["Which scale measures acidity and alkalinity?","pH scale",["Richter scale","Beaufort scale","Kelvin scale"],"The pH scale describes how acidic or alkaline a solution is."],
+["Which type of energy is stored in a stretched spring?","Elastic potential energy",["Sound energy","Nuclear energy","Light energy"],"A deformed spring stores elastic potential energy."]
+],
+Technology:[
+["What does HTML primarily define?","The structure of web content",["A computer's power supply","A wireless signal","A database backup schedule"],"HTML structures content on web pages."],
+["What does CSS primarily control?","The presentation and layout of web pages",["Electrical current","Domain ownership","CPU instruction decoding"],"CSS styles the appearance and layout of HTML content."],
+["Which language commonly runs in a browser to add interactivity?","JavaScript",["SQL only","Bash only","Assembly only"],"JavaScript is widely used for browser-side interactivity."],
+["What is malware?","Software designed to harm or misuse systems",["A screen resolution","A secure password manager","A file format for images"],"Malware includes malicious programs such as ransomware and spyware."],
+["What is a strong password practice?","Use a long, unique password for each account",["Reuse one short password","Share passwords publicly","Use your birthday everywhere"],"Long unique passwords reduce the impact of account compromise."],
+["What does cloud computing commonly provide?","Computing resources over a network",["Only offline paper records","A type of keyboard","Guaranteed zero downtime"],"Cloud services deliver computing resources such as storage and servers over networks."],
+["What is an IP address used for?","Identifying an interface on an IP network",["Measuring screen size","Compressing photos","Checking battery health"],"IP addresses identify network interfaces for communication."],
+["What is encryption intended to do?","Make information unreadable without the appropriate key",["Increase file size only","Delete all copies","Improve screen brightness"],"Encryption protects confidentiality by transforming readable data."],
+["What does a compiler do?","Translates source code into another form such as machine code",["Cleans a monitor","Routes physical cables","Creates internet access from nothing"],"A compiler translates program source into another representation."],
+["What is a software bug?","A defect that causes unintended behavior",["A computer accessory","A backup location","A network cable"],"A bug is an error or flaw in software."],
+["What does DNS help translate?","Domain names to IP addresses",["Images to sound","Passwords to usernames","Battery power to voltage"],"DNS resolves domain names to records including IP addresses."],
+["What is a backup?","A separate copy of data for recovery",["A public password","A screen filter","An internet browser"],"Backups help restore data after loss or corruption."],
+["What is open-source software?","Software whose source code is available under a license allowing specified use and modification",["Software that is always free of cost","Software without any license","Software that cannot be changed"],"Open-source licenses permit access to source and specified redistribution or modification."],
+["What is a firewall used for?","Controlling network traffic according to rules",["Increasing monitor size","Charging a laptop","Editing audio only"],"Firewalls filter network traffic based on security rules."],
+["What is machine learning?","A field where systems learn patterns from data",["A method for physically repairing machines","A type of printer ink","A file naming convention"],"Machine learning builds models that learn patterns from data."]
+],
+Geography:[
+["What is the capital of Ghana?","Accra",["Kumasi","Lagos","Lomé"],"Accra is Ghana's capital."],
+["Which continent contains the Sahara Desert?","Africa",["Asia","Europe","South America"],"The Sahara stretches across northern Africa."],
+["What does latitude measure?","Angular distance north or south of the Equator",["Distance east or west of Greenwich","Elevation above sea level","Ocean depth"],"Latitude is measured north or south of the Equator."],
+["What does longitude measure?","Angular distance east or west of the Prime Meridian",["Distance north of the Equator","Rainfall per year","Elevation"],"Longitude is measured east or west of the Prime Meridian."],
+["Which layer of Earth lies between the crust and core?","Mantle",["Atmosphere","Hydrosphere","Inner atmosphere"],"The mantle lies beneath the crust and above the core."],
+["What is an archipelago?","A group or chain of islands",["A dry inland basin","A mountain glacier","A river delta only"],"An archipelago is a group of islands."],
+["Which instrument records earthquake ground motion?","Seismograph",["Barometer","Thermometer","Anemometer"],"A seismograph records ground movement caused by earthquakes."],
+["What is a delta in river geography?","Deposited sediment landform near a river mouth",["A mountain pass","A deep ocean trench","A volcanic crater only"],"Deltas form where rivers deposit sediment near their mouths."],
+["What is an aquifer?","A body of permeable rock or sediment that stores and transmits groundwater",["A cloud layer","A desert wind","A type of volcano"],"Aquifers store and transmit groundwater."],
+["What is urbanization?","An increase in the share of people living in urban areas",["A fall in all city populations","A change in ocean salinity","The movement of tectonic plates"],"Urbanization is the growing proportion of people living in towns and cities."],
+["Which current is a major warm current in the North Atlantic?","Gulf Stream",["California Current","Labrador Current","Peru Current"],"The Gulf Stream transports warm water northward in the Atlantic."],
+["What is a watershed divide?","High ground separating drainage basins",["A line between time zones only","The deepest part of a lake","A coastal sandbar"],"A watershed divide separates areas draining to different river systems."],
+["Which gas is most associated with human-caused global warming by total emissions?","Carbon dioxide",["Neon","Helium","Hydrogen"],"Carbon dioxide is the largest contributor among long-lived greenhouse gases from human activities."],
+["What is the seasonal reversal of wind direction in parts of South Asia called?","Monsoon",["Tornado","Chinook","Blizzard"],"Monsoons are seasonal wind systems often associated with pronounced wet and dry seasons."],
+["What is a fjord?","A deep, narrow sea inlet carved by a glacier",["A flat desert plain","A coral atoll","A river source"],"Fjords are glacially carved valleys flooded by the sea."]
+],
+History:[
+["Who was Nigeria's first prime minister?","Abubakar Tafawa Balewa",["Nnamdi Azikiwe","Obafemi Awolowo","Ahmadu Bello"],"Balewa became prime minister at independence in 1960."],
+["In which year did World War II end?","1945",["1918","1939","1955"],"World War II ended in 1945."],
+["Which ancient civilization developed cuneiform writing?","Sumerians",["Aztecs","Vikings","Incas"],"Cuneiform developed in ancient Mesopotamia, including Sumer."],
+["Which empire was associated with the city of Tenochtitlan?","Aztec Empire",["Mali Empire","Mughal Empire","Byzantine Empire"],"Tenochtitlan was the Aztec capital."],
+["Who was the first human to travel into space?","Yuri Gagarin",["Neil Armstrong","Buzz Aldrin","John Glenn"],"Yuri Gagarin orbited Earth in 1961."],
+["The transatlantic slave trade forcibly transported millions of Africans mainly to which regions?","The Americas and Caribbean",["Only Scandinavia","Only East Asia","Only Australia"],"Enslaved Africans were transported largely to the Americas and Caribbean."],
+["Which West African empire is famous for the ruler Mansa Musa?","Mali Empire",["Songhai Empire","Oyo Empire","Aksumite Empire"],"Mansa Musa ruled the Mali Empire in the 14th century."],
+["What was the main purpose of the Magna Carta in 1215?","To place certain limits on the English king's authority",["To establish the United Nations","To end World War I","To unify Germany"],"Magna Carta limited royal authority in specific ways and became influential in constitutional history."],
+["Which movement sought to end apartheid in South Africa?","Anti-apartheid movement",["Boxer Rebellion","Meiji Restoration","Chartist movement"],"The anti-apartheid movement opposed racial segregation and white-minority rule."],
+["Which event is commonly considered the start of the French Revolution?","The storming of the Bastille in 1789",["The fall of the Berlin Wall","The Boston Tea Party","The signing of the UN Charter"],"The storming of the Bastille on July 14, 1789, became a defining early event."],
+["Which Nigerian region declared the Republic of Biafra in 1967?","The Eastern Region",["The Northern Region","The Western Region","The Mid-Western Region"],"Biafra's declaration followed the secession of Nigeria's Eastern Region."],
+["Who was a prominent leader of Ghana's independence movement?","Kwame Nkrumah",["Jomo Kenyatta","Julius Nyerere","Patrice Lumumba"],"Kwame Nkrumah led Ghana to independence in 1957."],
+["What was the Cold War primarily a rivalry between?","The United States and the Soviet Union and their blocs",["Ancient Rome and Carthage","France and Spain in the 1500s","Nigeria and Ghana"],"The Cold War was a geopolitical rivalry led by the United States and Soviet Union."],
+["Which conference in 1884–1885 addressed European claims in Africa?","Berlin Conference",["Bandung Conference","Yalta Conference","Vienna Congress"],"The Berlin Conference set rules among European powers for colonial claims."],
+["Which civilization built Machu Picchu?","Inca",["Roman","Phoenician","Minoan"],"Machu Picchu was built by the Inca civilization."]
+],
+"General Knowledge":[
+["What is the currency of Japan?","Yen",["Won","Yuan","Baht"],"Japan uses the yen."],
+["Which organization is the United Nations' specialized agency for public health?","World Health Organization",["World Trade Organization","UNESCO","International Monetary Fund"],"The WHO coordinates international public-health work."],
+["What does GDP stand for?","Gross domestic product",["General development plan","Global debt percentage","Gross domestic payment"],"GDP measures the value of final goods and services produced within a country during a period."],
+["Which instrument measures atmospheric pressure?","Barometer",["Hygrometer","Ammeter","Caliper"],"A barometer measures atmospheric pressure."],
+["What is the chemical symbol for gold?","Au",["Ag","Gd","Go"],"Au comes from the Latin aurum."],
+["How many sides does a hexagon have?","Six",["Five","Seven","Eight"],"A hexagon has six sides."],
+["Which body makes laws at the federal level in Nigeria?","National Assembly",["Central Bank of Nigeria","Supreme Court alone","INEC"],"Nigeria's federal legislature is the National Assembly."],
+["What is the main purpose of a referendum?","To let voters decide a specific question directly",["To appoint all judges","To set the weather forecast","To conduct a census automatically"],"A referendum asks voters to decide a particular policy or constitutional question."],
+["Which economic term describes a sustained general rise in prices?","Inflation",["Deflation","Depreciation only","Stagnation always"],"Inflation is a sustained increase in the general price level."],
+["What is biodiversity?","The variety of life at genetic, species, and ecosystem levels",["The number of buildings in a city","A measure of ocean depth","The speed of a computer"],"Biodiversity refers to the variety of living organisms and ecological systems."],
+["What is the main function of the International Court of Justice?","Resolve legal disputes between states and issue advisory opinions",["Set oil prices","Manage all national elections","Issue passports"],"The ICJ is the UN's principal judicial organ."],
+["What is a conflict of interest?","A situation where personal interests may improperly influence a duty",["A disagreement that is always violent","A routine accounting total","A type of weather warning"],"A conflict of interest can compromise impartial judgment."],
+["What does financial diversification generally aim to do?","Spread investments across different assets to reduce concentration risk",["Guarantee profit","Remove every risk","Ensure all assets rise together"],"Diversification can reduce concentration risk but cannot guarantee profits."],
+["What is the primary purpose of a constitution?","Establish fundamental rules and structures of government",["Set the price of every good","Replace all courts","List every private conversation"],"A constitution defines fundamental governmental structures and powers."],
+["What is renewable energy?","Energy from sources naturally replenished on human timescales",["Energy only from coal","Energy that can never be stored","Energy from a single battery type"],"Solar, wind, and hydropower are examples of renewable energy sources."]
+]
+};
+for(const s of subjects.filter(x=>facts[x])){
+ for(let d=1;d<=3;d++){
+  const items=facts[s];
+  for(let i=0;i<items.length;i++){
+   const [q,ans,wrong,exp]=items[i];
+   // Each subject has many distinct fact questions. Difficulty variants use distinct
+   // question framing and answer-choice order, but do not pretend a fact is new content.
+   let stem=q;
+   if(d===2) stem="Knowledge check: "+q;
+   if(d===3) stem="Challenge question: "+q;
+   const opts=shuffle([ans,...wrong]);
+   add(s,d,stem,opts,opts.indexOf(ans),exp,`${s}-${d}-fact-${i}`);
+  }
+  // Build additional distinct question entries from fact-specific applications.
+  for(let i=0;i<items.length;i++){
+   const [q,ans,wrong,exp]=items[i];
+   for(let v=0;v<3;v++){
+    const opts=shuffle([ans,...wrong]);
+    const framing=[
+      `Which answer correctly completes this knowledge question: ${q}`,
+      `Select the most accurate answer: ${q}`,
+      `For this ${levelName(d).toLowerCase()} question, choose the best answer: ${q}`
+    ][v];
+    add(s,d,framing,opts,opts.indexOf(ans),exp,`${s}-${d}-framed-${i}-${v}`);
+   }
+  }
+ }
+}
+// Add further unique maths and English content through deterministic number/word combinations.
+// A question ID and unique question wording are required for every entry.
+for(let d=1;d<=3;d++){
+ for(let i=0;i<150;i++){
+  let a=2+((i*7+d*3)%89),b=2+((i*11+d*5)%47),op=i%4,q,ans,e;
+  if(op===0){ans=a+b;q=`Calculate ${a} + ${b}.`;e=`Add the values: ${a} + ${b} = ${ans}.`;}
+  else if(op===1){if(b>a)[a,b]=[b,a];ans=a-b;q=`Calculate ${a} − ${b}.`;e=`Subtract: ${a} − ${b} = ${ans}.`;}
+  else if(op===2){a=2+(i%18);b=2+((i*3+d)%15);ans=a*b;q=`Calculate ${a} × ${b}.`;e=`Multiply: ${a} × ${b} = ${ans}.`;}
+  else {a=2+(i%20);ans=a*a;q=`What is ${a}²?`;e=`${a} × ${a} = ${ans}.`;}
+  let opts=numOptions(ans,i+d);add("Maths",d,q,opts,opts.indexOf(ans),e,`Maths-${d}-extra-${i}`);
+ }
+}
+// English grammar / usage bank: varied stems with distinct tested rules.
+const grammar=[
+["Choose the correct form: 'Each of the players ___ ready.'",["is","are","were","have"],0,"Each is singular in this construction."],
+["Choose the correct form: 'The news ___ surprising.'",["is","are","were","have"],0,"News is grammatically singular."],
+["Choose the correct form: 'She has lived here ___ 2020.'",["since","for","during","by"],0,"Since is used with a starting point in time."],
+["Choose the correct form: 'They have waited ___ two hours.'",["for","since","at","by"],0,"For is used with a duration."],
+["Which sentence is in the passive voice?",["The report was written by Ada.","Ada wrote the report.","Ada is writing the report.","Ada will write the report."],0,"The subject receives the action in the passive voice."],
+["Which word is a subordinating conjunction?",["Although","Chair","Quickly","Blue"],0,"Although introduces a dependent clause."],
+["Choose the correct word: 'The medicine had no ___ effect.'",["adverse","averse","adversely","adversity"],0,"Adverse is an adjective meaning harmful or unfavorable."],
+["Choose the correct word: 'She gave me good ___.'",["advice","advise","advices","advising"],0,"Advice is the noun; advise is the verb."],
+["Choose the correct word: 'The two policies ___ one another.'",["complement","compliment","complements","complimented"],0,"Complement means to complete or go well with something."],
+["Choose the correct word: 'Please ___ my apology.'",["accept","except","expect","access"],0,"Accept means to receive or agree to take."],
+["Which is a correctly punctuated direct quotation?",["She said, “I am ready.”","She said “I am ready”.","She said, I am ready.”","She said “I am ready.”"],0,"The quotation is enclosed in quotation marks, with the final punctuation inside."],
+["Which word is the object in 'The teacher praised the student'?",["student","teacher","praised","the"],0,"The student receives the action of praised."],
+["Which phrase is an example of alliteration?",["Wild winds whistle","A bright day","The quiet room","A long journey"],0,"Alliteration repeats initial consonant sounds."],
+["Which figure of speech gives human qualities to nonhuman things?",["Personification","Hyperbole","Irony","Euphemism"],0,"Personification attributes human qualities to nonhuman things."],
+["Choose the correct form: 'If she ___ harder, she would pass.'",["studied","studies","will study","has study"],0,"The second conditional uses if + past simple and would + base verb."],
+["Choose the correct form: 'By next June, I ___ here for ten years.'",["will have worked","worked","am work","have work"],0,"The future perfect expresses completion by a future time."],
+["Which word is closest in meaning to 'concise'?",["Brief and clear","Long and repetitive","Angry","Uncertain"],0,"Concise writing is brief but clear."],
+["Which word is the opposite of 'diligent'?",["Negligent","Careful","Industrious","Thorough"],0,"Negligent means failing to take proper care."],
+["Choose the correct phrase.",["A great deal of information","Many information","Few information","Several information"],0,"Information is generally uncountable in standard English."],
+["Which sentence has correct pronoun agreement?",["Every applicant must bring their identification.","Every applicant must bring them identification.","Every applicants must bring his identification.","Every applicant bring their identification."],0,"Singular they is widely accepted for a person of unspecified gender."],
+["Choose the correct word: 'The manager tried to ___ the disagreement.'",["mediate","meditate","mediate on","mediate to"],0,"Mediate means to intervene to help settle a dispute."],
+["What is the meaning of 'cogent'?",["Clear, logical, and convincing","Unrelated","Very loud","Impossible to read"],0,"Cogent arguments are clear and persuasive."],
+["What is the meaning of 'conundrum'?",["A difficult problem","A celebration","A clear instruction","A short poem"],0,"A conundrum is a difficult problem or question."],
+["Choose the correct sentence.",["The principal, along with the teachers, is attending.","The principal, along with the teachers, are attending.","The principal along with the teachers were attending tomorrow.","The principal with teachers are attend."],0,"The main subject principal is singular; the intervening phrase does not change agreement."],
+["Which word is a preposition?",["Beneath","Beautiful","Sing","Quickly"],0,"Beneath expresses a spatial relationship."],
+["What does 'scrutinize' mean?",["Examine closely","Ignore completely","Celebrate loudly","Make shorter"],0,"Scrutinize means to examine in detail."],
+["Which sentence contains a metaphor?",["Her voice was velvet.","Her voice was like velvet.","She spoke loudly.","Her voice sounded clear."],0,"A metaphor directly describes one thing as another."],
+["Which sentence uses a colon correctly?",["Bring three items: a pen, a book, and a ruler.","Bring: three items a pen, a book and a ruler.","Bring three: items a pen, a book.","Bring three items a pen: a book and a ruler."],0,"A colon can introduce a list after a complete clause."],
+["What does 'ostensible' mean?",["Appearing to be true, but not necessarily so","Definitely impossible","Extremely generous","Entirely silent"],0,"Ostensible means stated or appearing to be true, potentially concealing the reality."],
+["What is a syllogism?",["A form of deductive reasoning with premises and a conclusion","A type of punctuation","A poetic rhythm","A spelling error"],0,"A syllogism derives a conclusion from premises."]
+];
+for(let d=1;d<=3;d++){
+ for(let i=0;i<grammar.length;i++){
+  const [q,o,a,e]=grammar[i];
+  const prompt=d===1?q:d===2?"Grammar and usage: "+q:"Advanced language challenge: "+q;
+  add("English",d,prompt,o,a,e,`English-${d}-grammar-${i}`);
+ }
+}
+// Add diverse, data-driven questions for each non-English subject to reach 150 per level.
+// The repeated facts are avoided where possible; every record has its own ID and stem.
+// A bank audit below reports actual counts rather than pretending missing questions exist.
+function fillSubject(subject,d,items){
+ let n=0;
+ while(bank.filter(q=>q.s===subject&&q.d===d).length<150 && n<1000){
+  const item=items[n%items.length];const variant=Math.floor(n/items.length);
+  const [q,ans,wrong,exp]=item;
+  const stems=[
+   q,
+   `Applied question ${variant+1}: ${q}`,
+   `Knowledge application ${variant+1}: ${q}`,
+   `Choose the best answer for case ${variant+1}: ${q}`
+  ];
+  const stem=stems[variant%stems.length];
+  const opts=shuffle([ans,...wrong]);
+  const id=`${subject}-${d}-supplement-${n}`;
+  if(!bank.some(x=>x.id===id || x.q===stem&&x.s===subject&&x.d===d)){
+   add(subject,d,stem,opts,opts.indexOf(ans),exp,id);
+  }
+  n++;
+ }
+}
+// Only supplement subjects with fact lists; avoid falsely treating a repeated prompt as new.
+for(const s of ["Science","Technology","Geography","History","General Knowledge"]){
+ for(let d=1;d<=3;d++){
+  const current=bank.filter(q=>q.s===s&&q.d===d).length;
+  if(current<150){
+   const items=facts[s];
+   // We intentionally leave the actual available count visible rather than padding the
+   // bank with identical questions under different IDs.
+  }
+ }
+}
+
+// Clean the bank before the game starts: remove superficial rewordings and invalid answer keys.
+function canonicalQuestion(q){
+ let s=q.trim().toLowerCase();
+ s=s.replace(/^knowledge check:\s*/,'').replace(/^challenge question:\s*/,'');
+ s=s.replace(/^grammar and usage:\s*/,'').replace(/^advanced language challenge:\s*/,'');
+ s=s.replace(/^which answer correctly completes this knowledge question:\s*/,'');
+ s=s.replace(/^select the most accurate answer:\s*/,'');
+ s=s.replace(/^for this (easy|medium|hard) question, choose the best answer:\s*/,'');
+ s=s.replace(/^applied question \d+:\s*/,'').replace(/^knowledge application \d+:\s*/,'').replace(/^choose the best answer for case \d+:\s*/,'');
+ return s.replace(/[“”]/g,'"').replace(/[’]/g,"'").replace(/\s+/g,' ').trim();
+}
+const seenQuestionKeys=new Set();
+const cleanBank=[];
+for(const q of bank){
+ if(!q || !Array.isArray(q.o) || q.o.length!==4 || !Number.isInteger(q.a) || q.a<0 || q.a>=q.o.length || !q.o[q.a]) continue;
+ if(new Set(q.o.map(x=>String(x).trim().toLowerCase())).size!==4) continue;
+ const keyText=`${q.s}|${q.d}|${canonicalQuestion(q.q)}`;
+ if(seenQuestionKeys.has(keyText)) continue;
+ seenQuestionKeys.add(keyText);
+ cleanBank.push(q);
+}
+bank.splice(0,bank.length,...cleanBank);
+
+const $=id=>document.getElementById(id);
+let quiz=[],answers=[],index=0,timerId=null,left=0,done=false;
+const key=(s,d)=>`${s}|${d}`;
+function seenSet(s,d){try{return new Set(JSON.parse(localStorage.getItem("quizSeen:"+key(s,d))||"[]"));}catch{return new Set();}}
+function saveSeen(s,d,ids){try{const old=seenSet(s,d);ids.forEach(id=>old.add(id));localStorage.setItem("quizSeen:"+key(s,d),JSON.stringify([...old]));}catch{}}
+function levelName(d){return ["","Easy","Medium","Hard"][d];}
+function getPool(){
+ const d=Number($("difficulty").value);
+ return bank.filter(q=>q.d===d&&($("mode").value==="mixed"||q.s===$("subject").value));
+}
+function availableNew(pool){
+ const seenByKey={};
+ return pool.filter(q=>{const k=key(q.s,q.d);if(!seenByKey[k])seenByKey[k]=seenSet(q.s,q.d);return !seenByKey[k].has(q.id);});
+}
+function updateSetup(){
+ $("subject").disabled=$("mode").value==="mixed";
+ const pool=getPool(),fresh=availableNew(pool);
+ const perSubject=subjects.map(s=>`${s}: ${bank.filter(q=>q.s===s&&q.d===Number($("difficulty").value)).length}`).join(" · ");
+ $("bankInfo").textContent=`Available for this selection: ${pool.length} questions after duplicate cleanup; ${fresh.length} not yet seen on this browser. Counts by subject: ${perSubject}`;
+ $("notice").classList.add("hidden");
+}
+$("mode").onchange=updateSetup;$("subject").onchange=updateSetup;$("difficulty").onchange=updateSetup;
+$("count").onchange=updateSetup;
+$("resetHistory").onclick=()=>{if(confirm("Reset the saved question history on this browser? This allows previously seen questions to appear again.")){for(const s of subjects)for(const d of levels)localStorage.removeItem("quizSeen:"+key(s,d));updateSetup();alert("Question history reset on this browser.");}};
+function start(){
+ const requested=Number($("count").value),pool=shuffle(getPool());
+ if(pool.length<requested){$("notice").textContent=`This selection currently has only ${pool.length} unique question entries, so a ${requested}-question quiz cannot be made without repeats. Choose ${pool.length} or fewer questions, or switch to Mixed subjects.`;$("notice").classList.remove("hidden");return;}
+ let fresh=shuffle(availableNew(pool)),chosen=fresh.slice(0,requested);
+ if(chosen.length<requested){
+  const freshIds=new Set(chosen.map(q=>q.id));
+  const unused=pool.filter(q=>!freshIds.has(q.id));
+  const remaining=unused.filter(q=>!chosen.some(c=>c.id===q.id));
+  chosen=chosen.concat(shuffle(remaining).slice(0,requested-chosen.length));
+  $("notice").textContent="You have seen all or most questions in this selection on this browser. The quiz will avoid duplicates within this round, but some previously seen questions may return. Reset history or choose another subject for fresher questions.";
+  $("notice").classList.remove("hidden");
+ }
+ quiz=chosen;answers=Array(quiz.length).fill(null);index=0;done=false;
+ $("setup").classList.add("hidden");$("results").classList.add("hidden");$("quiz").classList.remove("hidden");
+ $("quizLabel").textContent=$("mode").value==="mixed"?"Mixed Subjects":$("subject").value;
+ $("levelLabel").textContent=`${levelName(Number($("difficulty").value))} · ${quiz.length} questions`;
+ render();
+}
+function render(){
+ if(done)return;
+ const q=quiz[index];$("questionNumber").textContent=`Question ${index+1} of ${quiz.length}`;
+ $("questionText").textContent=q.q;$("bar").style.width=`${(index+1)/quiz.length*100}%`;
+ $("answeredLabel").textContent=`${answers.filter(x=>x!==null).length} answered`;
+ $("options").innerHTML="";
+ q.o.forEach((opt,i)=>{const label=document.createElement("label");label.className="option"+(answers[index]===i?" chosen":"");
+ const input=document.createElement("input");input.type="radio";input.name="answer";input.checked=answers[index]===i;
+ input.onchange=()=>{answers[index]=i;render();};const span=document.createElement("span");span.textContent=String.fromCharCode(65+i)+". "+opt;
+ label.append(input,span);$("options").append(label);});
+ $("previous").disabled=index===0;$("next").disabled=index===quiz.length-1;
+ $("navigator").innerHTML="";quiz.forEach((q,i)=>{const b=document.createElement("button");b.className="navnum"+(answers[i]!==null?" answered":"")+(i===index?" current":"");b.textContent=i+1;b.onclick=()=>{index=i;render();};$("navigator").append(b);});
+ resetTimer();
+}
+function resetTimer(){clearInterval(timerId);const sec=Number($("seconds").value);if(!sec){$("timer").textContent="No timer";return;}left=sec;$("timer").textContent=left+"s";timerId=setInterval(()=>{left--;$("timer").textContent=left+"s";if(left<=0){clearInterval(timerId);if(index<quiz.length-1){index++;render();}else finish(true);}},1000);}
+function finish(auto=false){if(done)return;const unanswered=answers.filter(a=>a===null).length;if(!auto&&unanswered&&!confirm(`You have ${unanswered} unanswered questions. Finish anyway?`))return;done=true;clearInterval(timerId);
+ for(const q of quiz)saveSeen(q.s,q.d,[q.id]);
+ const correct=quiz.filter((q,i)=>answers[i]===q.a).length,wrong=quiz.filter((q,i)=>answers[i]!==null&&answers[i]!==q.a).length;
+ const pct=Math.round(correct/quiz.length*100);$("quiz").classList.add("hidden");$("results").classList.remove("hidden");$("score").textContent=`${correct}/${quiz.length}`;$("percentage").textContent=pct+"%";$("correctCount").textContent=correct;$("wrongCount").textContent=wrong;
+ $("resultMessage").textContent=pct>=80?"Excellent work! Keep challenging yourself.":pct>=60?"Good effort. Review the explanations and keep improving.":"Keep practicing. Use the review to learn from each question.";
+ $("unansweredResult").textContent=`Unanswered: ${unanswered}. Unanswered questions are not counted as incorrect.`;
+ $("review").classList.add("hidden");updateSetup();
+}
+function review(correctMode){$("review").classList.remove("hidden");$("reviewTitle").textContent=correctMode?"Review: Correct Answers":"Review: Incorrect and Unanswered";$("reviewContent").innerHTML="";let n=0;
+ quiz.forEach((q,i)=>{const correct=answers[i]===q.a;if(correctMode?!correct:(correct&&answers[i]!==null))return;n++;
+ const box=document.createElement("div");box.className="review-item";const h=document.createElement("h3");h.textContent=`Question ${i+1}: ${q.q}`;const meta=document.createElement("p");meta.className="small";meta.textContent=`${q.s} · ${levelName(q.d)}`;
+ const yours=document.createElement("p");yours.textContent="Your answer: "+(answers[i]===null?"Not answered":q.o[answers[i]]);
+ const right=document.createElement("p");right.textContent="Correct answer: "+q.o[q.a];const exp=document.createElement("div");exp.className="explanation";exp.textContent="Explanation: "+q.e;box.append(h,meta,yours,right,exp);$("reviewContent").append(box);});
+ if(!n){const p=document.createElement("p");p.textContent=correctMode?"No correct answers to review.":"No incorrect or unanswered questions. Great work!";$("reviewContent").append(p);}
+ $("review").scrollIntoView({behavior:"smooth",block:"start"});
+}
+$("start").onclick=start;$("previous").onclick=()=>{if(index>0){index--;render();}};$("next").onclick=()=>{if(index<quiz.length-1){index++;render();}};
+$("finish").onclick=()=>finish(false);$("reviewCorrect").onclick=()=>review(true);$("reviewWrong").onclick=()=>review(false);
+$("backResults").onclick=()=>{$("review").classList.add("hidden");$("results").scrollIntoView({behavior:"smooth"});};
+$("retry").onclick=()=>{clearInterval(timerId);$("results").classList.add("hidden");$("setup").classList.remove("hidden");$("review").classList.add("hidden");updateSetup();window.scrollTo({top:0,behavior:"smooth"});};
+updateSetup();
+</script>
+</body>
+</html>
